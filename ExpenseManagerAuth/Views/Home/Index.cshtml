@@ -1,0 +1,172 @@
+﻿@model IEnumerable<ExpenseManagerAuth.Models.Expense>
+@using Microsoft.AspNetCore.Identity
+
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+@{
+    ViewData["Title"] = "Personal Expense Manager";
+}
+<link href="~/lib/bootstrap/dist/css/bootstrap.css" rel="stylesheet" />
+<script src="~/lib/jquery/dist/jquery.min.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.8.0/js/bootstrap-datepicker.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.8.0/css/bootstrap-datepicker.css" rel="stylesheet">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css" integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
+<h3>@UserManager.GetUserName(User)'s Personal Expense Manager</h3>
+<br />
+
+<div>
+    <div style="float:left">
+        <button style="float:left; margin-right: 5px" class="btn btn-primary" onclick="AddEditExpenses(0)">Add Expense</button>
+        <form asp-controller="Home" asp-action="Import" style="float:left; margin-right: 5px" enctype="multipart/form-data" method="post" role="form">
+            <label style="cursor:pointer" class="btn btn-outline-success">
+                <input id="file-upload" style="display:none" type="file" name="file" accept=".xls, .xlsx" />
+                <i class="fas fa-file-upload"></i>
+            </label>
+            <div class="modal fade" id="uploadDialog" tabindex="-1" role="dialog" aria-labelledby="uploadDialogCenterTitle" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="exampleModalLongTitle">Would you like to import data from your file?</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" value="Import" class="btn btn-primary">Import</button>
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <button class="btn btn-outline-success" onclick="DownloadData()"><i class="fas fa-file-download"></i></button>
+    </div>
+    <div style="float:right;">
+        <form asp-controller="Home" asp-action="Index" class="form-group">
+            <div style="float:left; width:75%" class="col-sm-10">
+                <input class="form-control" type="text" name="SearchString" placeholder="Search">
+            </div>
+            <button style="width:25%;" type="submit" class="btn btn-default btn-info col-sm-11">Filter</button>
+        </form>
+    </div>
+</div>
+<br />
+<br />
+<table class="table text-center">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Category</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @{ int rowNo = 0; }
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@(rowNo += 1)</td>
+                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                <td>@Html.DisplayFor(modelItem => item.Amount)</td>
+                <td>@Html.DisplayFor(modelItem => item.Date)</td>
+                <td>@Html.DisplayFor(modelItem => item.Category)</td>
+                <td>
+                    <button class="btn btn-secondary" onclick="AddEditExpenses(@item.Id)">Edit</button>
+                    <button class="btn btn-danger" onclick="DeleteExpense(@item.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+    <tfoot>
+        <tr>
+            <td></td>
+            <td>Monthly Total:</td>
+            <td>@ViewBag.MonthlyTotal</td>
+            <td> Weekly Total:</td>
+            <td> @ViewBag.WeeklyTotal</td>
+            <td></td>
+        </tr>
+    </tfoot>
+</table>
+<div class="modal fade" id="expenseFormModel" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="title" class="modal-title">Add Expense</h3>
+                <a href="#" class="close" data-dismiss="modal">&times;</a>
+            </div>
+            <div class="modal-body" id="expenseFormModelDiv">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var AddEditExpenses = function (itemId) {
+        var url = "/Home/AddEditExpenses?itemId=" + itemId;
+        if (itemId > 0)
+            $('#title').html("Edit Expense");
+
+        $("#expenseFormModelDiv").load(url, function () {
+            $("#expenseFormModel").modal("show");
+
+        });
+
+        $('#expenseFormModel').on('shown.bs.modal', function () {
+
+            $('#calender-container .input-group.date').datepicker({
+                todayBtn: true,
+                calendarWeeks: true,
+                todayHighlight: true,
+                autoclose: true,
+                format: 'dd.mm.yyyy',
+                container: '#expenseFormModel modal-body'
+            });
+
+        });
+    }
+    var DeleteExpense = function (itemId) {
+
+        $.ajax({
+            type: "POST",
+            url: "/Home/Delete/" + itemId,
+            success: function () {
+                window.location.href = "/";
+            }
+        })
+    }
+
+    var DownloadData = function () {
+        window.location = ('@Url.Content("~/Home/Export")')
+    }
+
+    $('#file-upload').on('change', function () {
+        if ($('#file-upload').val() != 0) {
+            $('#uploadDialog').modal({
+                focus: true
+            })
+        }
+    })
+
+    $('body').on('click', "#btnSubmit", function () {
+        var myformdata = $("#expenseForm").serialize();
+
+        $.ajax({
+            type: "POST",
+            url: "/Home/Create",
+            data: myformdata,
+            success: function () {
+                $("#myModal").modal("hide");
+                window.location.href = "/";
+            },
+            error: function (errormessage) {
+                alert(errormessage.responseText);
+            }
+        })
+    })
+</script>
